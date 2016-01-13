@@ -1,0 +1,38 @@
+# Mega-NJ task Information
+
+General:
+
+  Task-Name: Mega NJ
+  version: 1.0
+  Description: The task implements neighbour joining method. It was designed in the e-Science Central system.
+  instruction-file: MegaNJ-instruction
+  task-dependencies: {java1.7, Wine1.6+, Mega-CC} 
+
+Blueprint:
+
+  blueprint-name: Mega-NJ.yaml
+  Docker-images: rawa/megaCC 
+  sizes: 
+  OS-types: ubuntu14.4 
+
+Input:
+
+  input-file(s): 
+  description: 
+  types: 
+
+Outputs:
+
+  output-folder: '~/Mega-NJ'
+  output-file(s): {}
+  description:
+  types: {}
+
+Execution-Environment:
+
+  Cloudify-version: 3.2
+  Docker-version: 1.8+
+  OS-type: ubuntu14.04
+  Disk-space: 10 GB
+  RAM: 3 GB
+

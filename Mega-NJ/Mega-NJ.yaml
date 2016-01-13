@@ -1,0 +1,174 @@
+# Blueprint to deploy Meha-NJ task
+
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.1/types.yaml
+  - https://raw.githubusercontent.com/rawaqasha/e-sc-cloudify/master/esc_nodetypes.yaml
+  - https://raw.githubusercontent.com/rawaqasha/WF-Task-Repository/master/Mega-NJ/megaNJ-nodetype.yaml
+
+inputs:
+
+  input-dir:
+      description: >
+        The dir path of the input files  
+      default: '~/input'
+
+  input-file1:
+      description: >
+        input file for importFile1
+      default: file1.txt
+
+  input-file2:
+      description: >
+        input file for importFile2
+      default: file2.txt
+
+  docker-image: 
+      description: > 
+        Docker image to be used for container building
+      default: 'rawa/megaCC'
+
+node_types:
+
+  docker_container:
+    derived_from: cloudify.nodes.Root
+    properties:
+      image_name:
+        type: string
+        default: { get_input: docker-image }
+      container_ID:
+        type: string
+        default: container1
+
+node_templates:
+
+  host:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: localhost
+      install_agent: false
+
+  starterBlock:
+    type: cloudify.nodes.ApplicationModule
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/start-inhost.sh
+          inputs:
+            process:
+              args: [Mega-NJ]
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: host
+
+  megaNJ:
+    type: docker_container
+    properties:
+      container_ID: megaNJ
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/container.sh
+          inputs:
+            process:
+              args: [Mega-NJ]
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: host
+      - type: cloudify.relationships.depends_on
+        target: starterBlock
+
+  Java:
+    type: spec_library
+    properties:
+      lib_name: default-jdk
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/java-install2.sh
+          inputs:
+            process:
+              args: [megaNJ]
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: megaNJ
+
+  Wine:
+    type: spec_library
+    properties:
+      lib_name: wine
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/wine-install.sh
+          inputs:
+            process:
+              args: [megaNJ]
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: megaNJ
+
+  Mega-CC:
+    type: MegaCC
+    properties:
+      lib_name: megacc.exe
+      lib_URL: http://www.megasoftware.net/
+      lib_path: work
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/megaCC-install.sh
+          inputs:
+            process:
+              args: [megaNJ, 'https://github.com/rawaqasha/work.git']
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: Wine
+      - type: cloudify.relationships.contained_in
+        target: megaNJ
+
+  Mega-Nj:
+    type: mega-nj
+    properties:
+      block_description: I don't know
+      block_name: Mega-NJ1.jar
+      block_category: File Management
+      service_type: block 
+      test_of_phylogeny: Bootstrap method
+      no-ofbootstrapreplications: 1000
+      model/method: Kimura 2-parameter model
+      substitutions_to_include: 'd: Transitions + Transversions'
+      rates_among_sites: Uniform rates        
+      gamma_parameter: 1
+      gaps/missing_data_treatment: 'Complete deletion'       
+      site_coverage_cutoff(%): 95
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: container1
+      - type: cloudify.relationships.depends_on
+        target: Mega-CC
+      - type: cloudify.relationships.depends_on
+        target: Java        
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          implementation: scripts/special-deploy.sh
+          inputs:
+            process:
+              args: [Mega-NJ, megaNJ, 'https://github.com/rawaqasha/eScBlocks-host/raw/master/Mega-NJ1.jar',  get_property: [Mega-CC, lib_path]]
+
+  finalBlock:
+    type: cloudify.nodes.ApplicationModule
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          implementation: scripts/final-inhost.sh
+          inputs:
+            process:
+              args: [Mega-NJ]
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: host
+      - type: cloudify.relationships.depends_on
+        target: Mega-Nj
